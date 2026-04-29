@@ -25,10 +25,10 @@ class AuthService:
             await session.refresh(user_record)
             return self._build_token_response(self._to_user_model(user_record))
 
-    async def login(self, username: str) -> AuthTokenModel:
+    async def login(self, email: str) -> AuthTokenModel:
         # Passwordless login is intentional for this test task to keep the sample focused on the expedition domain.
         async with self.db.session() as session:
-            user_record = await session.scalar(select(UserRecord).where(UserRecord.email == username))
+            user_record = await session.scalar(select(UserRecord).where(UserRecord.email == email))
             if user_record is None:
                 raise DomainError(401, "Invalid login")
             return self._build_token_response(self._to_user_model(user_record))

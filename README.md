@@ -30,7 +30,7 @@ Registration requires:
 - `name`
 - `role`
 
-Login uses the `username` request field as the user email.
+Login requires `email`.
 
 There are no passwords intentionally. This is a test-task shortcut to keep the sample focused on the expedition domain
 instead of password fields, hashing, and password validation flows.

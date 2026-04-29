@@ -14,6 +14,6 @@ def create_router(service: AuthService) -> APIRouter:
 
     @router.post("/login", response_model=TokenResponse)
     async def login(request: LoginRequest) -> TokenResponse:
-        return TokenResponse.from_model(await service.login(request.username))
+        return TokenResponse.from_model(await service.login(request.email))
 
     return router

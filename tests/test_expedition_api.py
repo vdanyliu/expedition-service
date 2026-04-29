@@ -41,6 +41,19 @@ def register_user(client: TestClient, email: str, role: str = "member") -> dict[
     return response.json()
 
 
+def test_login_requires_email_field(client: TestClient):
+    registered_user = register_user(client, "member@example.com")
+
+    response = client.post("/auth/login", json={"email": "member@example.com"})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["access_token"]
+    assert response.json()["user"]["id"] == registered_user["user"]["id"]
+
+    wrong_field_response = client.post("/auth/login", json={"username": "member@example.com"})
+    assert wrong_field_response.status_code == 422
+
+
 def auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 

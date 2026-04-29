@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from expedition_service.back.enums import ExpeditionStatus, UserRole
 from expedition_service.back.models import ExpeditionCreateModel, UserCreateModel
@@ -28,20 +28,22 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str
+    model_config = ConfigDict(extra="forbid")
 
-    @field_validator("username", mode="before")
+    email: str
+
+    @field_validator("email", mode="before")
     @classmethod
-    def normalize_username(cls, value):
+    def normalize_email(cls, value):
         if isinstance(value, str):
             return value.strip()
         return value
 
-    @field_validator("username")
+    @field_validator("email")
     @classmethod
-    def validate_username(cls, value: str) -> str:
+    def validate_email(cls, value: str) -> str:
         if not value:
-            raise ValueError("username must not be empty.")
+            raise ValueError("email must not be empty.")
         return value
 
 
