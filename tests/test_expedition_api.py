@@ -473,6 +473,65 @@ def test_websocket_rejects_invalid_token(client: TestClient):
     assert exc_info.value.code == 1008
 
 
+def test_invited_member_cannot_confirm_or_receive_updates_after_expedition_started(client: TestClient):
+    chief = register_user(client, "chief@example.com", "chief")
+    expedition = create_expedition(client, chief["access_token"], capacity=2)
+    confirmed_member = create_confirmed_member(client, chief["access_token"], expedition["id"], "confirmed@example.com")
+    create_confirmed_member(client, chief["access_token"], expedition["id"], "confirmed-2@example.com")
+    invited_member = create_invited_member(client, chief["access_token"], expedition["id"], "invited@example.com")
+    invited_messages: queue.Queue = queue.Queue()
+
+    ready_response = update_status(client, chief["access_token"], expedition["id"], "ready")
+    assert ready_response.status_code == 200, ready_response.text
+
+    def receive_invited_message():
+        try:
+            invited_messages.put(invited_ws.receive_json())
+        except Exception:
+            return
+
+    with (
+        client.websocket_connect(f"/ws/expeditions?token={chief['access_token']}") as chief_ws,
+        client.websocket_connect(f"/ws/expeditions?token={confirmed_member['access_token']}") as confirmed_ws,
+        client.websocket_connect(f"/ws/expeditions?token={invited_member['access_token']}") as invited_ws,
+    ):
+        invited_thread = threading.Thread(
+            target=receive_invited_message,
+            daemon=True,
+        )
+        invited_thread.start()
+
+        active_response = update_status(client, chief["access_token"], expedition["id"], "active")
+        assert active_response.status_code == 200, active_response.text
+
+        chief_active_event = chief_ws.receive_json()
+        confirmed_active_event = confirmed_ws.receive_json()
+        assert chief_active_event == confirmed_active_event
+        assert chief_active_event["type"] == "expedition_status"
+        assert chief_active_event["old_status"] == "ready"
+        assert chief_active_event["new_status"] == "active"
+
+        with pytest.raises(queue.Empty):
+            invited_messages.get(timeout=0.2)
+
+        confirm_response = confirm_membership(client, invited_member["access_token"], expedition["id"])
+        assert confirm_response.status_code == 400
+        assert confirm_response.json()["detail"] == "Members can confirm only while expedition is draft"
+
+        finished_response = update_status(client, chief["access_token"], expedition["id"], "finished")
+        assert finished_response.status_code == 200, finished_response.text
+
+        chief_finished_event = chief_ws.receive_json()
+        confirmed_finished_event = confirmed_ws.receive_json()
+        assert chief_finished_event == confirmed_finished_event
+        assert chief_finished_event["type"] == "expedition_status"
+        assert chief_finished_event["old_status"] == "active"
+        assert chief_finished_event["new_status"] == "finished"
+
+        with pytest.raises(queue.Empty):
+            invited_messages.get(timeout=0.2)
+
+
 def test_websocket_sends_events_to_authorized_expedition_users_only(client: TestClient):
     chief = register_user(client, "chief@example.com", "chief")
     member = register_user(client, "member@example.com")

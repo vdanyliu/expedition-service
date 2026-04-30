@@ -250,11 +250,19 @@ class ExpeditionService:
         )
         return list(result.all())
 
-    async def _get_event_recipient_user_ids(self, session: AsyncSession, expedition_id: int) -> set[int]:
+    async def _get_event_recipient_user_ids(
+        self,
+        session: AsyncSession,
+        expedition_id: int,
+        member_state: MemberState | None = None,
+    ) -> set[int]:
         chief_id = await session.scalar(select(ExpeditionRecord.chief_id).where(ExpeditionRecord.id == expedition_id))
-        member_ids = await session.scalars(
-            select(ExpeditionMemberRecord.user_id).where(ExpeditionMemberRecord.expedition_id == expedition_id)
+        member_query = select(ExpeditionMemberRecord.user_id).where(
+            ExpeditionMemberRecord.expedition_id == expedition_id
         )
+        if member_state is not None:
+            member_query = member_query.where(ExpeditionMemberRecord.state == member_state)
+        member_ids = await session.scalars(member_query)
         recipient_user_ids = set(member_ids.all())
         if chief_id is not None:
             recipient_user_ids.add(chief_id)
@@ -285,8 +293,13 @@ class ExpeditionService:
         old_status: ExpeditionStatus,
         new_status: ExpeditionStatus,
     ) -> None:
+        member_state = (
+            MemberState.CONFIRMED
+            if new_status in {ExpeditionStatus.ACTIVE, ExpeditionStatus.FINISHED}
+            else None
+        )
         await self.events.publish(
-            await self._get_event_recipient_user_ids(session, expedition_id),
+            await self._get_event_recipient_user_ids(session, expedition_id, member_state),
             {
                 "type": ExpeditionEventType.EXPEDITION_STATUS.value,
                 "expedition_id": expedition_id,
