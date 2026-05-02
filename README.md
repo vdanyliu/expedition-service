@@ -106,3 +106,31 @@ uv run --group dev pytest tests
 
 The tests use FastAPI `TestClient`, so the service does not need to be hosted separately.
 Each test creates its own temporary SQLite database.
+
+## Performance Tests
+
+Run the local domain-load scenario:
+
+```powershell
+uv run --group dev pytest performance_tests -s
+```
+
+The test starts a local `uvicorn` server and runs expedition teams concurrently.
+The default scenario runs 40 teams. Each team creates:
+
+- 1 chief user
+- 1 expedition
+- 20 invited member users
+- 15 confirmed members
+- full lifecycle: `draft -> ready -> active -> finished`
+
+The output includes total HTTP requests, elapsed time, RPS, p95 request latency, p95 team latency, status codes, and error count.
+
+Default load settings can be changed with environment variables:
+
+```powershell
+$env:LOAD_TEAM_COUNT = "40"
+$env:LOAD_INVITED_MEMBERS_PER_TEAM = "20"
+$env:LOAD_CONFIRMED_MEMBERS_PER_TEAM = "15"
+uv run --group dev pytest performance_tests -s
+```

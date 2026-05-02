@@ -15,7 +15,10 @@ class Database:
         self.session_factory: async_sessionmaker[AsyncSession] | None = None
 
     async def _ainit_(self):
-        self.engine = create_async_engine(self.settings.database_url)
+        self.engine = create_async_engine(
+            self.settings.database_url,
+            connect_args={"timeout": 20},
+        )
         event.listen(self.engine.sync_engine, "connect", self._enable_sqlite_foreign_keys)
         self.session_factory = async_sessionmaker(
             bind=self.engine,
@@ -41,4 +44,5 @@ class Database:
     def _enable_sqlite_foreign_keys(dbapi_connection, _):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA busy_timeout=20000")
         cursor.close()

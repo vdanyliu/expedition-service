@@ -17,3 +17,4 @@ tmp*
 /static/
 expedition_service.db
 tests/
+performance_tests/
